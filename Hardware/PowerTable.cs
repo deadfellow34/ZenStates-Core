@@ -74,8 +74,8 @@ namespace ZenStates.Core
             public int offsetCldoVddgCcd;
             public int offsetCoresPower;
             public int offsetVddMisc;
-            // SVI3 telemetry block (Zen4/Zen5): consecutive rails of VID, measured voltage,
-            // current, second current and VRM temperature. -1 when not mapped.
+            // SVI3 telemetry block (Zen3+/Zen4/Zen5): VID, measured voltage, current,
+            // an unexposed +0xC slot and optional VRM temperature. -1 when not mapped.
             public int offsetSvi3Block;
             public int svi3RailStride; // 0x14 (5 floats), 0x10 on tables without the VRM temperature
             public Svi3Rails svi3Rails;
@@ -85,9 +85,9 @@ namespace ZenStates.Core
         private enum Svi3Rails
         {
             None,
-            VddSocMisc,        // desktop / mobile HX
-            VddVdd1SocMisc,    // Threadripper: two core rails
-            VddSoc,            // APU
+            VddSocMisc,        // VDD -> SoC -> MISC (desktop / mobile HX)
+            VddVdd1SocMisc,    // VDD0 -> VDD1 -> SoC -> MISC (Threadripper)
+            VddSoc,            // VDD -> SoC (APU)
         }
 
         private const int SVI3_RAIL = 0x14;
@@ -180,10 +180,10 @@ namespace ZenStates.Core
         /// Zen2: 0x200
         /// Zen3: 0x300
         /// </summary>
-        // Zen4/Zen5 VDDCR_SOC and MISC point at the measured rail voltage from the SVI3 telemetry block,
-        // not at the VID. Each rail is VID, measured V, current, second current, VRM temp (stride 0x14);
-        // Hawk Point (0x4C0008) omits the temperature (stride 0x10).
+        // SVI3 VDDCR_SOC and MISC point at measured rail voltage. Rail fields: +0 VID, +4 V, +8 A,
+        // +0xC not exposed, +0x10 VRM temp. Rembrandt and Phoenix 0x4C0001/3-8 omit VRM temp (stride 0x10).
         // version, size, FCLK, UCLK, MCLK, VDDCR_SOC, CLDO_VDDP, CLDO_VDDG_IOD, CLDO_VDDG_CCD, Cores Power Offset, MISC
+        // Optional trailing columns: SVI3 block byte offset, rail stride in bytes, rail order. -1 = unmapped.
         private static readonly PowerTableDef PowerTables = new PowerTableDef
         {
             // Pre-Ryzen
@@ -206,10 +206,10 @@ namespace ZenStates.Core
             { 0x260001, 0x608, 0x28, 0x2C, 0x30, 0x10, -1, -1, -1, -1, -1 },
 
             // Zen2 APU (Renoir)
-            { 0x370000, 0x884, 0x4B4, 0x4B8, 0x4BC, 0x190, 0x72C, -1, -1, -1, -1 },
-            { 0x370001, 0x88C, 0x5A4, 0x5A8, 0x5AC, 0x190, 0x81C, -1, -1, -1, -1 },
-            { 0x370002, 0x8AC, 0x5AC, 0x5B0, 0x5B4, 0x198, 0x824, -1, -1, -1, -1 },
-            { 0x370003, 0x8C8, 0x5CC, 0x5D0, 0x5D4, 0x198, 0x844, -1, -1, -1, -1 },
+            { 0x370000, 0x794, 0x4B4, 0x4B8, 0x4BC, 0x190, 0x72C, -1, -1, -1, -1 }, // Renoir 0x370000
+            { 0x370001, 0x884, 0x5A4, 0x5A8, 0x5AC, 0x190, 0x81C, -1, -1, -1, -1 }, // Renoir 0x370001
+            { 0x370002, 0x88C, 0x5AC, 0x5B0, 0x5B4, 0x198, 0x824, -1, -1, -1, -1 }, // Renoir 0x370002
+            { 0x370003, 0x8AC, 0x5CC, 0x5D0, 0x5D4, 0x198, 0x844, -1, -1, -1, -1 }, // Renoir 0x370003
             { 0x370004, 0x8C8, 0x5CC, 0x5D0, 0x5D4, 0x198, 0x844, -1, -1, -1, -1 },
             { 0x370005, 0x8C8, 0x5E8, 0x5EC, 0x5F0, 0x198, 0x86C, -1, -1, -1, -1 }, // size from RyzenAdj
             // Generic Zen2 APU (latest known)
@@ -226,49 +226,42 @@ namespace ZenStates.Core
             { 0x400004, 0x944, 0x664, 0x668, 0x66C, 0x19C, 0x8D4, -1, -1, -1, -1 },
             { 0x400005, 0x944, 0x664, 0x668, 0x66C, 0x19C, 0x8D4, -1, -1, -1, -1 },
             // Rembrandt
-            { 0x450004, 0xAA4, 0x664, 0x668, 0x66C, 0x19C, 0x8D4, -1, -1, -1, -1 },
-            { 0x450005, 0xAB0, 0x6B0, 0x6B4, 0x6B8, 0x1C8, 0x8D4, -1, -1, -1, -1 },
+            { 0x450004, 0xAA4, 0x6A4, 0x6A8, -1, 0x1C8, -1, -1, -1, -1, -1, 0x1B4, SVI3_RAIL_NO_TEMP, Svi3Rails.VddSoc }, // Rembrandt 0x450004
+            { 0x450005, 0xAB0, 0x6B0, 0x6B4, 0x6B8, 0x1C8, 0x8D4, -1, -1, -1, -1, 0x1B4, SVI3_RAIL_NO_TEMP, Svi3Rails.VddSoc }, // Rembrandt 0x450005
             // Generic Zen3 APU
             { 0x000012, 0x948, 0x664, 0x668, 0x66C, 0x19C, 0x8D4, -1, -1, -1, -1 },
 
             // KrackanPoint
-            // CANDIDATE offsets, not confirmed yet. Derived from a single 0x650005 dump
-            // (Ryzen AI 7 350, DDR5-5600, AGESA StrixKrackanPI-FP8 1.1.0.0c):
-            //   0x4C8 = 1413.26  -> FCLK, sits between the 1400 and 1500 DPM steps at 0x22C
-            //   0x4CC = 1069.50  -> UCLK, inside the 500..1400 DPM range at 0x244
-            //   0x4D0 = 2139.00  -> MCLK, exactly 2 x UCLK, i.e. the 1:2 UCLK:MCLK lock
-            //   0x074 = 1.046026 -> VDDCR_SOC, same offset Phoenix (0x4C000x) uses
-            // These are time averaged values, which is why they are not equal to a DPM step.
-            // CLDO_VDDP / VDD_MISC have no plausible candidate in the dump, left unmapped.
-            { 0x650004, 0xB74, 0x4C8, 0x4CC, 0x4D0, 0x74, -1, -1, -1, -1, -1 },
-            { 0x650005, 0xB78, 0x4C8, 0x4CC, 0x4D0, 0x74, -1, -1, -1, -1, -1 },
-            { 0x650006, 0xB80, 0x4C8, 0x4CC, 0x4D0, 0x74, -1, -1, -1, -1, -1 },
-            // size is not confirmed
-            { 0x650007, 0xB80, 0x4C8, 0x4CC, 0x4D0, 0x74, -1, -1, -1, -1, -1 },
-            // 0x650008 is in SMU 101.72.0 (AGESA ComboAm5PI 1.3.0.1d). Placeholder: size and offsets copied
-            // from 0x650007, unverified. TODO: real offsets.
-            { 0x650008, 0xB80, 0x4C8, 0x4CC, 0x4D0, 0x74, -1, -1, -1, -1, -1 },
-            { 0x000650, 0xB80, 0x4C8, 0x4CC, 0x4D0, 0x74, -1, -1, -1, -1, -1 },
+            { 0x650004, 0xB74, 0x4C4, 0x4C8, -1, 0x2BC, -1, -1, -1, -1, -1, 0x2A4, SVI3_RAIL, Svi3Rails.VddSoc }, // Krackan Point 0x650004
+            { 0x650005, 0xB78, 0x4C8, 0x4CC, -1, 0x2BC, -1, -1, -1, -1, -1, 0x2A4, SVI3_RAIL, Svi3Rails.VddSoc }, // Krackan Point 0x650005
+            { 0x650006, 0xB80, 0x4D0, 0x4D4, -1, 0x2C4, -1, -1, -1, -1, -1, 0x2AC, SVI3_RAIL, Svi3Rails.VddSoc }, // Krackan Point 0x650006
+            { 0x650007, 0xB78, 0x4C8, 0x4CC, -1, 0x2BC, -1, -1, -1, -1, -1, 0x2A4, SVI3_RAIL, Svi3Rails.VddSoc }, // Krackan Point 0x650007
+            { 0x650008, 0xB90, 0x4E0, 0x4E4, -1, 0x2D4, -1, -1, -1, -1, -1, 0x2BC, SVI3_RAIL, Svi3Rails.VddSoc }, // Krackan Point 0x650008
+            { 0x000650, 0xB80, -1, -1, -1, -1, -1, -1, -1, -1, -1 }, // Krackan Point generic
 
             // StrixPoint
-            // offsets updated from https://github.com/FlyGoat/RyzenAdj/blob/master/lib/api.c
-            { 0x5D0008, 0xD54, 0x4E0, 0x4E4, 0x4EC, -1, -1, -1, -1, -1, -1 },
-            { 0x5D0009, 0xD58, 0x4E0, 0x4E4, 0x4EC, -1, -1, -1, -1, -1, -1 },
-            { 0x5D000A, 0xD60, 0x4E0, 0x4E4, 0x4EC, -1, -1, -1, -1, -1, -1 },
-            { 0x5D000B, 0xD60, 0x4E0, 0x4E4, 0x4EC, -1, -1, -1, -1, -1, -1 },
-            { 0x0005D0, 0xD60, 0x4E0, 0x4E4, 0x4EC, -1, -1, -1, -1, -1, -1 },
+            { 0x5D0008, 0xD54, 0x4E0, 0x4E4, 0x4EC, 0x2D0, -1, -1, -1, -1, -1, 0x2B8, SVI3_RAIL, Svi3Rails.VddSoc }, // Strix Point 0x5D0008
+            { 0x5D0009, 0xD58, 0x4E4, 0x4E8, -1, 0x2D0, -1, -1, -1, -1, -1, 0x2B8, SVI3_RAIL, Svi3Rails.VddSoc }, // Strix Point 0x5D0009
+            { 0x5D000A, 0xD60, 0x4EC, 0x4F0, -1, 0x2D8, -1, -1, -1, -1, -1, 0x2C0, SVI3_RAIL, Svi3Rails.VddSoc }, // Strix Point 0x5D000A
+            { 0x5D000B, 0xD60, 0x4DC, 0x4E0, -1, 0x2C8, -1, -1, -1, -1, -1, 0x2B0, SVI3_RAIL, Svi3Rails.VddSoc }, // Strix Point 0x5D000B
+            { 0x5D000C, 0xD68, 0x4F4, 0x4F8, -1, 0x2E0, -1, -1, -1, -1, -1, 0x2C8, SVI3_RAIL, Svi3Rails.VddSoc }, // Strix Point 0x5D000C
+            { 0x0005D0, 0xD60, -1, -1, -1, -1, -1, -1, -1, -1, -1 }, // Strix Point generic
 
             // StrixHalo
-            { 0x640107, 0xDC0, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
-            { 0x640108, 0xDC4, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
-            { 0x640109, 0xDD4, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
-            { 0x64010A, 0xDD4, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
-            { 0x64010C, 0xDDC, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
-            { 0x640207, 0x100C, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
-            { 0x640208, 0x1010, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
-            { 0x640209, 0x1020, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
-            { 0x64020A, 0x1020, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
-            { 0x64020C, 0x1028, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
+            { 0x640107, 0xDC0, 0x558, 0x55C, -1, 0x334, -1, -1, -1, -1, -1 }, // Strix Halo 0x640107
+            { 0x640108, 0xDC4, 0x558, 0x55C, -1, 0x334, -1, -1, -1, -1, -1 }, // Strix Halo 0x640108
+            { 0x640109, 0xDD4, 0x568, 0x56C, -1, 0x344, -1, -1, -1, -1, -1 }, // Strix Halo 0x640109
+            { 0x64010A, 0xDD4, 0x568, 0x56C, -1, 0x344, -1, -1, -1, -1, -1 }, // Strix Halo 0x64010A
+            { 0x64010C, 0xDDC, 0x570, 0x574, -1, 0x34C, -1, -1, -1, -1, -1 }, // Strix Halo 0x64010C
+            { 0x64010D, 0xDF8, 0x58C, 0x590, -1, 0x368, -1, -1, -1, -1, -1 }, // Strix Halo 0x64010D
+            { 0x64010E, 0xDFC, 0x590, 0x594, -1, 0x368, -1, -1, -1, -1, -1 }, // Strix Halo 0x64010E
+            { 0x640207, 0x100C, 0x558, 0x55C, -1, 0x334, -1, -1, -1, -1, -1 }, // Strix Halo 0x640207
+            { 0x640208, 0x1010, 0x558, 0x55C, -1, 0x334, -1, -1, -1, -1, -1 }, // Strix Halo 0x640208
+            { 0x640209, 0x1020, 0x568, 0x56C, -1, 0x344, -1, -1, -1, -1, -1 }, // Strix Halo 0x640209
+            { 0x64020A, 0x1020, 0x568, 0x56C, -1, 0x344, -1, -1, -1, -1, -1 }, // Strix Halo 0x64020A
+            { 0x64020C, 0x1028, 0x570, 0x574, -1, 0x34C, -1, -1, -1, -1, -1 }, // Strix Halo 0x64020C
+            { 0x64020D, 0x1044, 0x58C, 0x590, -1, 0x368, -1, -1, -1, -1, -1 }, // Strix Halo 0x64020D
+            { 0x64020E, 0x1048, 0x590, 0x594, -1, 0x368, -1, -1, -1, -1, -1 }, // Strix Halo 0x64020E
             { 0x000640, 0x1028, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
 
             // Zen CPU
@@ -287,7 +280,7 @@ namespace ZenStates.Core
             { 0x240902, 0x514, 0xBC, 0xC4, 0xC8, 0xB0, 0x1F0, 0x1F4, -1, -1, -1 },
             { 0x000202, 0x7E4, 0xBC, 0xC4, 0xC8, 0xB0, 0x1F0, 0x1F4, -1, -1, -1 }, // generic
             // version from 0x240003 to 0x240903 ?
-            { 0x240003, 0x18AC, 0xB0, 0xB8, 0xBC, 0xA4, 0x1E4, 0x1E8, -1, -1, -1 },
+            { 0x240003, 0x18AC, 0xB0, 0xB8, 0xBC, 0xB4, 0x1E4, 0x1E8, -1, -1, -1 }, // Zen2 0x240003
             { 0x240503, 0xD7C, 0xC0, 0xC8, 0xCC, 0xB4, 0x1F4, 0x1F8, -1, 0x24C, -1 },
             { 0x240603, 0xAB0, 0xC0, 0xC8, 0xCC, 0xB4, 0x1F4, 0x1F8, -1, 0x24C, -1 },
             { 0x240703, 0x7E4, 0xC0, 0xC8, 0xCC, 0xB4, 0x1F4, 0x1F8, -1, 0x24C, -1 },
@@ -297,9 +290,9 @@ namespace ZenStates.Core
             { 0x000203, 0x7E4, 0xC0, 0xC8, 0xCC, 0xB4, 0x1F4, 0x1F8, -1, 0x24C, -1 },
 
             // Zen3 CPU
-            { 0x2D0008, 0x1AB0, 0xBC, 0xC4, 0xC8, 0xB0, 0x220, 0x224, -1, -1, -1 },
+            { 0x2D0008, 0x1AB0, 0xBC, 0xC4, 0xC8, 0xC4, 0x220, 0x224, -1, -1, -1 }, // Zen3 0x2D0008
             { 0x2D0803, 0x894, 0xBC, 0xC4, 0xC8, 0xB0, 0x220, 0x224, -1, -1, -1 },
-            { 0x2D0903, 0x7E4, 0xBC, 0xC4, 0xC8, 0xB0, 0x220, 0x224, -1, -1, -1 },
+            { 0x2D0903, 0x594, 0xBC, 0xC4, 0xC8, 0xB0, 0x220, 0x224, -1, -1, -1 }, // Vermeer 0x2D0903
             { 0x380005, 0x1BB0, 0xC0, 0xC8, 0xCC, 0xB4, 0x224, 0x228, 0x22C, -1, -1 },
             { 0x380505, 0xF30, 0xC0, 0xC8, 0xCC, 0xB4, 0x224, 0x228, 0x22C, -1, -1 },
             { 0x380605, 0xC10, 0xC0, 0xC8, 0xCC, 0xB4, 0x224, 0x228, 0x22C, -1, -1 },
@@ -312,31 +305,31 @@ namespace ZenStates.Core
             { 0x000300, 0x948, 0xC0, 0xC8, 0xCC, 0xB4, 0x224, 0x228, 0x22C, -1, -1 },
 
             // Zen4 (unverified): size should be correct, offsets are not verified yet
-            { 0x540100, 0x618, 0x118, 0x128, 0x138, 0xD0, 0x430, -1, -1, -1, 0xE4, 0xB8, SVI3_RAIL, Svi3Rails.VddSocMisc },
-            { 0x540101, 0x61C, 0x118, 0x128, 0x138, 0xD0, 0x430, -1, -1, -1, 0xE4, 0xB8, SVI3_RAIL, Svi3Rails.VddSocMisc },
-            { 0x540102, 0x66C, 0x118, 0x128, 0x138, 0xD0, 0x430, -1, -1, -1, 0xE4, 0xB8, SVI3_RAIL, Svi3Rails.VddSocMisc },
-            { 0x540103, 0x68C, 0x118, 0x128, 0x138, 0xD0, 0x430, -1, -1, -1, 0xE4, 0xB8, SVI3_RAIL, Svi3Rails.VddSocMisc },
+            { 0x540100, 0x618, 0xCC, 0xDC, 0xEC, 0x84, 0x430, -1, -1, -1, 0x98, 0x6C, SVI3_RAIL, Svi3Rails.VddSocMisc }, // Raphael 0x540100
+            { 0x540101, 0x61C, 0xCC, 0xDC, 0xEC, 0x84, 0x430, -1, -1, -1, 0x98, 0x6C, SVI3_RAIL, Svi3Rails.VddSocMisc }, // Raphael 0x540101
+            { 0x540102, 0x66C, 0x100, 0x110, 0x120, 0xB8, 0x430, -1, -1, -1, 0xCC, 0xA0, SVI3_RAIL, Svi3Rails.VddSocMisc }, // Raphael 0x540102
+            { 0x540103, 0x68C, 0x100, 0x110, 0x120, 0xB8, 0x430, -1, -1, -1, 0xCC, 0xA0, SVI3_RAIL, Svi3Rails.VddSocMisc }, // Raphael 0x540103
             { 0x540104, 0x6A8, 0x118, 0x128, 0x138, 0xD0, 0x430, -1, -1, -1, 0xE4, 0xB8, SVI3_RAIL, Svi3Rails.VddSocMisc },
             { 0x540105, 0x6B4, 0x118, 0x128, 0x138, 0xD0, 0x430, -1, -1, -1, 0xE4, 0xB8, SVI3_RAIL, Svi3Rails.VddSocMisc },
-            { 0x540108, 0x6BC, 0x118, 0x128, 0x138, 0xD0, 0x430, -1, -1, -1, 0xE4, 0xB8, SVI3_RAIL, Svi3Rails.VddSocMisc },
-            { 0x540000, 0x828, 0x118, 0x128, 0x138, 0xD0, 0x430, -1, -1, -1, 0xE4, 0xB8, SVI3_RAIL, Svi3Rails.VddSocMisc },
-            { 0x540001, 0x82C, 0x118, 0x128, 0x138, 0xD0, 0x430, -1, -1, -1, 0xE4, 0xB8, SVI3_RAIL, Svi3Rails.VddSocMisc },
-            { 0x540002, 0x87C, 0x118, 0x128, 0x138, 0xD0, 0x430, -1, -1, -1, 0xE4, 0xB8, SVI3_RAIL, Svi3Rails.VddSocMisc },
-            { 0x540003, 0x89C, 0x118, 0x128, 0x138, 0xD0, 0x430, -1, -1, -1, 0xE4, 0xB8, SVI3_RAIL, Svi3Rails.VddSocMisc },
+            { 0x540108, 0x6BC, 0x11C, 0x12C, 0x13C, 0xD4, 0x430, -1, -1, -1, 0xE8, 0xBC, SVI3_RAIL, Svi3Rails.VddSocMisc }, // Raphael 0x540108
+            { 0x540000, 0x828, 0xCC, 0xDC, 0xEC, 0x84, 0x430, -1, -1, -1, 0x98, 0x6C, SVI3_RAIL, Svi3Rails.VddSocMisc }, // Raphael 0x540000
+            { 0x540001, 0x82C, 0xCC, 0xDC, 0xEC, 0x84, 0x430, -1, -1, -1, 0x98, 0x6C, SVI3_RAIL, Svi3Rails.VddSocMisc }, // Raphael 0x540001
+            { 0x540002, 0x87C, 0x100, 0x110, 0x120, 0xB8, 0x430, -1, -1, -1, 0xCC, 0xA0, SVI3_RAIL, Svi3Rails.VddSocMisc }, // Raphael 0x540002
+            { 0x540003, 0x89C, 0x100, 0x110, 0x120, 0xB8, 0x430, -1, -1, -1, 0xCC, 0xA0, SVI3_RAIL, Svi3Rails.VddSocMisc }, // Raphael 0x540003
             { 0x540004, 0x8BC, 0x118, 0x128, 0x138, 0xD0, 0x430, -1, -1, -1, 0xE4, 0xB8, SVI3_RAIL, Svi3Rails.VddSocMisc },
             { 0x540005, 0x8C8, 0x118, 0x128, 0x138, 0xD0, 0x430, -1, -1, -1, 0xE4, 0xB8, SVI3_RAIL, Svi3Rails.VddSocMisc },
             { 0x540208, 0x8D0, 0x11C, 0x12C, 0x13C, 0xD4, 0x434, -1, -1, -1, 0xE8, 0xBC, SVI3_RAIL, Svi3Rails.VddSocMisc },
             
             // Storm Peak, cpuid 00A10F81
             { 0x5C0002, 0x1E3C, 0x194, 0x1A8, 0x1BC, 0x120, -1, -1, -1, -1, 0x134, 0xF4, SVI3_RAIL, Svi3Rails.VddVdd1SocMisc },
-            { 0x5C0003, 0x1E48, 0x194, 0x1A8, 0x1BC, 0x120, -1, -1, -1, -1, 0x134, 0xF4, SVI3_RAIL, Svi3Rails.VddVdd1SocMisc },
+            { 0x5C0003, 0x1E48, 0x19C, 0x1B0, 0x1C4, 0x128, -1, -1, -1, -1, 0x13C, 0xFC, SVI3_RAIL, Svi3Rails.VddVdd1SocMisc }, // Storm Peak 0x5C0003
             { 0x5C0102, 0x1A14, 0x194, 0x1A8, 0x1BC, 0x120, -1, -1, -1, -1, 0x134, 0xF4, SVI3_RAIL, Svi3Rails.VddVdd1SocMisc },
-            { 0x5C0103, 0x1A20, 0x194, 0x1A8, 0x1BC, 0x120, -1, -1, -1, -1, 0x134, 0xF4, SVI3_RAIL, Svi3Rails.VddVdd1SocMisc },
+            { 0x5C0103, 0x1A20, 0x19C, 0x1B0, 0x1C4, 0x128, -1, -1, -1, -1, 0x13C, 0xFC, SVI3_RAIL, Svi3Rails.VddVdd1SocMisc }, // Storm Peak 0x5C0103
             { 0x5C0202, 0x15EC, 0x194, 0x1A8, 0x1BC, 0x120, -1, -1, -1, -1, 0x134, 0xF4, SVI3_RAIL, Svi3Rails.VddVdd1SocMisc },
             { 0x5C0203, 0x15F8, 0x19C, 0x1B0, 0x1C4, 0x128, -1, -1, -1, -1, 0x13C, 0xFC, SVI3_RAIL, Svi3Rails.VddVdd1SocMisc }, // x03 layout (+8), verified on a 7985WX report
             { 0x5C0302, 0xD9C, 0x194, 0x1A8, 0x1BC, 0x120, -1, -1, -1, -1, 0x134, 0xF4, SVI3_RAIL, Svi3Rails.VddVdd1SocMisc },
             { 0x5C0303, 0xDA8, 0x19C, 0x1B0, 0x1C4, 0x128, -1, -1, -1, -1, 0x13C, 0xFC, SVI3_RAIL, Svi3Rails.VddVdd1SocMisc },
-            { 0x5C0402, 0x974, 0x19C, 0x1B0, 0x1C4, 0x128, -1, -1, -1, -1, 0x13C, 0xFC, SVI3_RAIL, Svi3Rails.VddVdd1SocMisc },
+            { 0x5C0402, 0x974, 0x194, 0x1A8, 0x1BC, 0x120, -1, -1, -1, -1, 0x134, 0xF4, SVI3_RAIL, Svi3Rails.VddVdd1SocMisc }, // Storm Peak 0x5C0402
             { 0x5C0403, 0x980, 0x19C, 0x1B0, 0x1C4, 0x128, -1, -1, -1, -1, 0x13C, 0xFC, SVI3_RAIL, Svi3Rails.VddVdd1SocMisc },
 
             // version, size, FCLK, UCLK, MCLK,     VDDCR_SOC, CLDO_VDDP, CLDO_VDDG_IOD, CLDO_VDDG_CCD, Cores Power Offset, MISC
@@ -651,7 +644,7 @@ namespace ZenStates.Core
             /*if (ConfiguredClockSpeed > 0 && MemRatio > 0)
                 bclkCorrection = ConfiguredClockSpeed / (MemRatio * 200);*/
 
-            MCLK = GetDiscreteValue(pt, tableDef.offsetMclk) * bclkCorrection;
+            MCLK = GetDiscreteValue(pt, tableDef.offsetMclk) * bclkCorrection * (tableDef.tableVersion == 0x5D0008 ? 0.5f : 1.0f);
             FCLK = GetDiscreteValue(pt, tableDef.offsetFclk) * bclkCorrection;
             UCLK = GetDiscreteValue(pt, tableDef.offsetUclk) * bclkCorrection;
             VDDCR_SOC = GetDiscreteValue(pt, tableDef.offsetVddcrSoc);
