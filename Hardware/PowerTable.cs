@@ -382,6 +382,35 @@ namespace ZenStates.Core
             { 0x731004, 0x2D74, 0x20C, 0x21C, 0x22C, 0x1A4, 0x5CC, 0x714, 0x71C, -1, 0x1B8, 0x178, SVI3_RAIL, Svi3Rails.VddVdd1SocMisc },
             // Generic ShimadaPeak
             { 0x000730, 0xAFC, 0x20C, 0x21C, 0x22C, 0x1A4, 0x5CC, -1, -1, -1, 0x1B8, 0x178, SVI3_RAIL, Svi3Rails.VddVdd1SocMisc },
+
+            // Zen6
+            // MedusaPoint
+            { 0x750000, 0x8F0, 0x4C8, 0x4CC, -1, 0x2BC, -1, -1, -1, -1, -1, 0x2A4, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x750000
+            { 0x750001, 0xC24, 0x48C, 0x490, -1, 0x384, -1, -1, -1, -1, -1, 0x36C, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x750001
+            { 0x750002, 0xCAC, 0x4D4, 0x4D8, -1, 0x3CC, -1, -1, -1, -1, -1, 0x3B4, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x750002
+            { 0x750003, 0xCB4, 0x4DC, 0x4E0, -1, 0x3CC, -1, -1, -1, -1, -1, 0x3B4, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x750003
+            { 0x750004, 0xD24, 0x4DC, 0x4E0, -1, 0x3CC, -1, -1, -1, -1, -1, 0x3B4, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x750004
+            { 0x750005, 0xCE4, 0x504, 0x508, -1, 0x3CC, -1, -1, -1, -1, -1, 0x3B4, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x750005
+            { 0x750006, 0xD20, 0x504, 0x508, -1, 0x3CC, -1, -1, -1, -1, -1, 0x3B4, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x750006
+            { 0x750007, 0xD94, 0x57C, 0x580, -1, 0x444, -1, -1, -1, -1, -1, 0x42C, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x750007
+            { 0x750103, 0xFC8, 0x4DC, 0x4E0, -1, 0x3CC, -1, -1, -1, -1, -1, 0x3B4, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x750103
+            { 0x750105, 0xFF8, 0x504, 0x508, -1, 0x3CC, -1, -1, -1, -1, -1, 0x3B4, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x750105
+            { 0x750106, 0x1034, 0x504, 0x508, -1, 0x3CC, -1, -1, -1, -1, -1, 0x3B4, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x750106
+            { 0x750107, 0x10A8, 0x57C, 0x580, -1, 0x444, -1, -1, -1, -1, -1, 0x42C, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x750107
+            { 0x760000, 0x9B4, 0x4DC, 0x4E0, -1, 0x3CC, -1, -1, -1, -1, -1, 0x3B4, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x760000
+            { 0x760005, 0xD50, 0x504, 0x508, -1, 0x3CC, -1, -1, -1, -1, -1, 0x3B4, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x760005
+            { 0x760006, 0xD8C, 0x504, 0x508, -1, 0x3CC, -1, -1, -1, -1, -1, 0x3B4, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x760006
+            { 0x760007, 0xE00, 0x57C, 0x580, -1, 0x444, -1, -1, -1, -1, -1, 0x42C, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x760007
+            { 0x760100, 0x9B4, 0x4DC, 0x4E0, -1, 0x3CC, -1, -1, -1, -1, -1, 0x3B4, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x760100
+            { 0x760105, 0x1064, 0x504, 0x508, -1, 0x3CC, -1, -1, -1, -1, -1, 0x3B4, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x760105
+            { 0x760106, 0x10A0, 0x504, 0x508, -1, 0x3CC, -1, -1, -1, -1, -1, 0x3B4, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x760106
+            { 0x760107, 0x1114, 0x57C, 0x580, -1, 0x444, -1, -1, -1, -1, -1, 0x42C, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x760107
+            { 0x880005, 0xCE4, 0x504, 0x508, -1, 0x3CC, -1, -1, -1, -1, -1, 0x3B4, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x880005
+            { 0x880006, 0xD20, 0x504, 0x508, -1, 0x3CC, -1, -1, -1, -1, -1, 0x3B4, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x880006
+            { 0x880007, 0xD94, 0x57C, 0x580, -1, 0x444, -1, -1, -1, -1, -1, 0x42C, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x880007
+            { 0x890005, 0xCE4, 0x504, 0x508, -1, 0x3CC, -1, -1, -1, -1, -1, 0x3B4, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x890005
+            { 0x890006, 0xD20, 0x504, 0x508, -1, 0x3CC, -1, -1, -1, -1, -1, 0x3B4, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x890006
+            { 0x890007, 0xD94, 0x57C, 0x580, -1, 0x444, -1, -1, -1, -1, -1, 0x42C, SVI3_RAIL, Svi3Rails.VddSoc }, // Medusa Point 0x890007
         };
 
         private static PTDef GetDefByVersion(uint version)
